@@ -3,11 +3,11 @@ use rand::prelude::*;
 
 #[derive(Debug)]
 pub enum GameState {
-    WIN_X,
-    WIN_O,
-    CAT,
-    TURN_X,
-    TURN_O,
+    win_x,
+    win_o,
+    cat,
+    turn_x,
+    turn_o,
 }
 
 pub struct TicTTGame {
@@ -17,7 +17,7 @@ pub struct TicTTGame {
     board: Vec<Option<String>>,
     pub state: GameState,
     x_sum: u8,
-    y_sum: u8,
+    o_sum: u8,
     n_moves: u8,
 }
 
@@ -36,31 +36,36 @@ impl TicTTGame {
         TicTTGame {
             user: user,
             board: vec![None, None, None, None, None, None, None, None, None],
-            state: if rand::random() { GameState::TURN_X } else { GameState::TURN_O },
+            state: if rand::random() { GameState::turn_x } else { GameState::turn_o },
             x_char: x_character,
             o_char: o_character,
             x_sum: 0,
-            y_sum: 0,
+            o_sum: 0,
             n_moves: 0,
         }   
     }
 
-    pub fn update_board(&mut self, x: String, y: String) -> Result<(), &'static str> {  
-        let (index, value) = match TicTTGame::equiv_index((&x, &y)) {
-            (Some(dex), Some(val)) => (dex, val),
-            (_, _) => return Err("Invalid position"),
+    pub fn update_board(&mut self, pos: String) -> Result<(), &'static str> {  
+        let position = match pos.parse::<u8>() {
+            Ok(val) => val as usize,
+            Err(why) => return Err("Your input is either too big or non-numeric!"),
         };
 
-       let piece: &String = match self.board[index] {
+        let ms_val = match TicTTGame::getms_value(position as u8) {
+            Some(val) => val,
+            None => return Err("Invalid position!"),
+        };
+
+       let piece: &String = match self.board[position] {
             Some(_) => return Err("That position is already occupied"),
             None => {
                 let ret = match &self.state {
-                    TURN_X => {
-                        self.x_sum += value;
+                    turn_x => {
+                        self.x_sum += ms_val;
                         &self.x_char
                     },
-                    TURN_O => {
-                        self.y_sum += value;
+                    turn_o => {
+                        self.o_sum += ms_val;
                         &self.o_char
                     },
                     _ => return Err("Game is unable to be updated: invalid state"),
@@ -73,9 +78,26 @@ impl TicTTGame {
             },
         };
 
-       self.board[index] = Some(piece.to_string());
+       self.board[position] = Some(piece.to_string());
        Ok(())
     } 
+
+    //This function gives the corresponding magic square
+    //value for whatever position the user wants
+    pub fn getms_value(location: u8) -> Option<u8> {
+        match location {
+            0 => Some(8),
+            1 => Some(1),
+            2 => Some(6),
+            3 => Some(3),
+            4 => Some(5),
+            5 => Some(7),
+            6 => Some(4),
+            7 => Some(9),
+            8 => Some(2),
+            _ => None,
+        }
+    }
 
     pub fn determine_state(game: &TicTTGame) -> GameState {
         if let Some(winner) = game.detect_win() {
@@ -83,38 +105,31 @@ impl TicTTGame {
         }
 
         if (game.n_moves == 17) {
-            return GameState::CAT;
+            return GameState::cat;
         }
 
         match &game.state {
-            TURN_X => GameState::TURN_O,
-            TURN_O => GameState::TURN_X,
+            turn_x => GameState::turn_o,
+            turn_o => GameState::turn_x,
         }
     }
 
-    pub fn equiv_index((x, y): (&str, &str)) -> (Option<usize>, Option<u8>) {
-        match ((x, y)) {
-            ("0", "0") => (Some(0), Some(8)),
-            ("0", "1") => (Some(3), Some(3)),
-            ("0", "2") => (Some(6), Some(4)),
-            ("1", "0") => (Some(1), Some(1)),
-            ("1", "1") => (Some(4), Some(5)),
-            ("1", "2") => (Some(7), Some(9)),
-            ("2", "0") => (Some(2), Some(6)),
-            ("2", "1") => (Some(5), Some(7)), 
-            ("2", "2") => (Some(8), Some(2)),
-            (_, _) => (None, None),
-        }
-    }
-    
     pub fn detect_win(&self) -> Option<GameState> {
         if self.x_sum == 15 {
-            Some(GameState::WIN_X)
-        } else if self.y_sum == 15 {
-            Some(GameState::WIN_O)
+            Some(GameState::win_x)
+        } else if self.o_sum == 15 {
+            Some(GameState::win_o)
         } else {
             None
         }
+    }
+
+    pub fn board_grid() -> &'static str {
+        "0 | 1 | 2\n
+        -----------\n
+         3 | 4 | 5\n
+        -----------\n
+         6 | 7 | 8\n"
     }
 }
 
