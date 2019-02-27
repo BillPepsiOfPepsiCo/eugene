@@ -10,12 +10,14 @@ pub enum GameState {
     turn_o,
 }
 
+#[derive(Debug)]
 pub struct TicTTGame {
-    pub user: String,
+    pub player1: String,
+    pub player2: String,
     pub x_char: String,
     pub o_char: String,
-    board: Vec<Option<String>>,
     pub state: GameState,
+    board: Vec<Option<String>>,
     x_sum: u8,
     o_sum: u8,
     n_moves: u8,
@@ -24,21 +26,34 @@ pub struct TicTTGame {
 impl fmt::Display for TicTTGame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut disp_str: String = String::new();
-        disp_str.push_str(&format!("TicTTGame: [ User: {} State: {:?} X_Char: {} O_Char: {} ]\n", self.user, self.state, self.x_char, self.o_char));
-        disp_str.push_str("Board:\n");
-        disp_str.push_str(&format!("{:?}\n", self.board));
+        let mut clean_board: Vec<String> = Vec::new();
+
+        for thing in &self.board {
+            match thing {
+                Some(piece) => clean_board.push(piece.to_string()),
+                None => clean_board.push(String::from("-")),
+            };
+        }
+        
+        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[0], clean_board[1], clean_board[2]));
+        disp_str.push_str("----------\n");
+        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[3], clean_board[4], clean_board[5])); 
+        disp_str.push_str("----------\n");
+        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[6], clean_board[7], clean_board[8]));
+
         write!(f, "{}", disp_str)
     }
 }
 
 impl TicTTGame {
-    pub fn new(user: String, x_character: String, o_character: String) -> TicTTGame {
+    pub fn new(player1: String, x_char: String, o_char: String) -> TicTTGame {
         TicTTGame {
-            user: user,
+            player1: String::new(),
+            player2: String::new(),
             board: vec![None, None, None, None, None, None, None, None, None],
             state: if rand::random() { GameState::turn_x } else { GameState::turn_o },
-            x_char: x_character,
-            o_char: o_character,
+            x_char: String::new(),
+            o_char: String::new(),
             x_sum: 0,
             o_sum: 0,
             n_moves: 0,
