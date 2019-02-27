@@ -1,14 +1,11 @@
 use serenity::{
     client::Client,
-    framework::standard::{StandardFramework, Args},
+    framework::standard::{Args, StandardFramework},
     model::{channel::Message, gateway::Ready},
     prelude::*,
 };
 
-use std::{
-    sync::Mutex,
-    env,
-};
+use std::{env, sync::Mutex};
 
 #[path = "facts.rs"]
 mod facts;
@@ -51,7 +48,9 @@ pub fn init() {
                     Ok(fact) => {
                         match msg.channel_id.say(fact) {
                             Ok(msg) => println!("[Facts] Sent message: {:?}", msg),
-                            Err(pourquoi) => println!("[Facts] Error sending message: {:?}", pourquoi),
+                            Err(pourquoi) => {
+                                println!("[Facts] Error sending message: {:?}", pourquoi)
+                            }
                         };
                     }
                 };
@@ -61,7 +60,7 @@ pub fn init() {
             .on("t3", |_context, msg, mut args| {
                 //~tictactoe start <player1 piece> <player2-name> <player2-piece>
                 let command = args.single::<String>()?;
-                if args.len() == 4 && command == "start" { 
+                if args.len() == 4 && command == "start" {
                     let piece_p1 = args.single::<String>()?;
                     let name_p1 = (&msg.author.name).to_string();
                     let name_p2 = args.single::<String>()?;
@@ -71,15 +70,20 @@ pub fn init() {
 
                     for game in ttt_games_mx.lock().unwrap().iter() {
                         if game.player1 == player1 {
-                            msg.channel_id.say(format!("{} is already in a game!", player1.name));
-                            return Ok(())
+                            msg.channel_id
+                                .say(format!("{} is already in a game!", player1.name));
+                            return Ok(());
                         } else if game.player2 == player2 {
-                            msg.channel_id.say(format!("{} is already in a game!", player2.name));
-                            return Ok(())
+                            msg.channel_id
+                                .say(format!("{} is already in a game!", player2.name));
+                            return Ok(());
                         }
                     }
 
-                    msg.channel_id.say(format!("A new game of tic tac toe has been started between {} and {}!", player1.name, player2.name));
+                    msg.channel_id.say(format!(
+                        "A new game of tic tac toe has been started between {} and {}!",
+                        player1.name, player2.name
+                    ));
                     let g = ttt::TicTTGame::new(player1, player2);
                     println!("{}", g);
                     ttt_games_mx.lock().unwrap().push(g);
@@ -89,11 +93,10 @@ pub fn init() {
                 }
 
                 Ok(())
-            })
+            }),
     );
 
     if let Err(why) = client.start() {
         println!("An error occurred while running the client: {:?}", why);
     }
 }
-

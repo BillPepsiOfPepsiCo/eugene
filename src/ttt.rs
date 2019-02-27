@@ -1,5 +1,5 @@
-use std::fmt;
 use rand::prelude::*;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum GameState {
@@ -43,12 +43,21 @@ impl fmt::Display for TicTTGame {
                 None => clean_board.push(String::from("-")),
             };
         }
-        
-        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[0], clean_board[1], clean_board[2]));
+
+        disp_str.push_str(&format!(
+            "{} | {} | {}\n",
+            clean_board[0], clean_board[1], clean_board[2]
+        ));
         disp_str.push_str("----------\n");
-        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[3], clean_board[4], clean_board[5])); 
+        disp_str.push_str(&format!(
+            "{} | {} | {}\n",
+            clean_board[3], clean_board[4], clean_board[5]
+        ));
         disp_str.push_str("----------\n");
-        disp_str.push_str(&format!("{} | {} | {}\n", clean_board[6], clean_board[7], clean_board[8]));
+        disp_str.push_str(&format!(
+            "{} | {} | {}\n",
+            clean_board[6], clean_board[7], clean_board[8]
+        ));
 
         write!(f, "{}", disp_str)
     }
@@ -70,12 +79,16 @@ impl TicTTGame {
             player1: player1,
             player2: player2,
             board: vec![None, None, None, None, None, None, None, None, None],
-            state: if rand::random() { GameState::Turn_Player1 } else { GameState::Turn_Player2 },
+            state: if rand::random() {
+                GameState::Turn_Player1
+            } else {
+                GameState::Turn_Player2
+            },
             total_moves: 0,
-        }   
+        }
     }
 
-    pub fn update_board(&mut self, pos: String) -> Result<(), &'static str> {  
+    pub fn update_board(&mut self, pos: String) -> Result<(), &'static str> {
         let position = match pos.parse::<u8>() {
             Ok(val) => val as usize,
             Err(why) => return Err("Your input is either too big or non-numeric!"),
@@ -86,18 +99,18 @@ impl TicTTGame {
             None => return Err("Invalid position!"),
         };
 
-       let piece: &String = match self.board[position] {
+        let piece: &String = match self.board[position] {
             Some(_) => return Err("That position is already occupied!"),
             None => {
                 let ret = match &self.state {
                     Turn_Player1 => {
                         self.player1.points += ms_val;
                         &self.player1.piece
-                    },
+                    }
                     Turn_Player2 => {
                         self.player2.points += ms_val;
                         &self.player2.piece
-                    },
+                    }
                     _ => return Err("Game is unable to be updated: invalid state"),
                 };
 
@@ -105,12 +118,12 @@ impl TicTTGame {
                 self.total_moves += 1;
                 self.state = TicTTGame::determine_state(&self);
                 ret
-            },
+            }
         };
 
-       self.board[position] = Some(piece.to_string());
-       Ok(())
-    } 
+        self.board[position] = Some(piece.to_string());
+        Ok(())
+    }
 
     //This function gives the corresponding magic square
     //value for whatever position the user wants
@@ -162,4 +175,3 @@ impl TicTTGame {
          6 | 7 | 8\n"
     }
 }
-
