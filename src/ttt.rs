@@ -3,24 +3,33 @@ use rand::prelude::*;
 
 #[derive(Debug)]
 pub enum GameState {
-    win_x,
-    win_o,
+    Win_Player1,
+    Win_Player2,
     cat,
-    turn_x,
-    turn_o,
+    Turn_Player1,
+    Turn_Player2,
 }
 
 #[derive(Debug)]
 pub struct TicTTGame {
-    pub player1: String,
-    pub player2: String,
-    pub x_char: String,
-    pub o_char: String,
+    pub player1: Player,
+    pub player2: Player,
     pub state: GameState,
     board: Vec<Option<String>>,
-    x_sum: u8,
-    o_sum: u8,
-    n_moves: u8,
+    total_moves: u8,
+}
+
+#[derive(Debug)]
+pub struct Player {
+    pub name: String,
+    pub piece: String,
+    pub points: u8,
+}
+
+impl PartialEq for Player {
+    fn eq(&self, other: &Player) -> bool {
+        self.name == other.name
+    }
 }
 
 impl fmt::Display for TicTTGame {
@@ -45,18 +54,24 @@ impl fmt::Display for TicTTGame {
     }
 }
 
+impl Player {
+    pub fn new(name: String, piece: String) -> Player {
+        Player {
+            name: name,
+            piece: piece,
+            points: 0,
+        }
+    }
+}
+
 impl TicTTGame {
-    pub fn new(player1: String, x_char: String, o_char: String) -> TicTTGame {
+    pub fn new(player1: Player, player2: Player) -> TicTTGame {
         TicTTGame {
-            player1: String::new(),
-            player2: String::new(),
+            player1: player1,
+            player2: player2,
             board: vec![None, None, None, None, None, None, None, None, None],
-            state: if rand::random() { GameState::turn_x } else { GameState::turn_o },
-            x_char: String::new(),
-            o_char: String::new(),
-            x_sum: 0,
-            o_sum: 0,
-            n_moves: 0,
+            state: if rand::random() { GameState::Turn_Player1 } else { GameState::Turn_Player2 },
+            total_moves: 0,
         }   
     }
 
@@ -72,22 +87,22 @@ impl TicTTGame {
         };
 
        let piece: &String = match self.board[position] {
-            Some(_) => return Err("That position is already occupied"),
+            Some(_) => return Err("That position is already occupied!"),
             None => {
                 let ret = match &self.state {
-                    turn_x => {
-                        self.x_sum += ms_val;
-                        &self.x_char
+                    Turn_Player1 => {
+                        self.player1.points += ms_val;
+                        &self.player1.piece
                     },
-                    turn_o => {
-                        self.o_sum += ms_val;
-                        &self.o_char
+                    Turn_Player2 => {
+                        self.player2.points += ms_val;
+                        &self.player2.piece
                     },
                     _ => return Err("Game is unable to be updated: invalid state"),
                 };
 
                 //Update the state for the next turn
-                self.n_moves += 1;
+                self.total_moves += 1;
                 self.state = TicTTGame::determine_state(&self);
                 ret
             },
@@ -119,21 +134,21 @@ impl TicTTGame {
             return winner;
         }
 
-        if (game.n_moves == 17) {
+        if (game.total_moves == 17) {
             return GameState::cat;
         }
 
         match &game.state {
-            turn_x => GameState::turn_o,
-            turn_o => GameState::turn_x,
+            Turn_Player1 => GameState::Turn_Player2,
+            Turn_Player2 => GameState::Turn_Player1,
         }
     }
 
     pub fn detect_win(&self) -> Option<GameState> {
-        if self.x_sum == 15 {
-            Some(GameState::win_x)
-        } else if self.o_sum == 15 {
-            Some(GameState::win_o)
+        if self.player1.points == 15 {
+            Some(GameState::Win_Player1)
+        } else if self.player2.points == 15 {
+            Some(GameState::Win_Player2)
         } else {
             None
         }

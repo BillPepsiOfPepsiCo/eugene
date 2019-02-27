@@ -1,7 +1,13 @@
-#[macro_use] extern crate serenity;
+#[macro_use]
+extern crate serenity;
+#[macro_use]
+extern crate lazy_static;
 
 mod bot;
 mod facts;
+
+#[path = "ttt.rs"]
+mod ttt;
 
 fn main() {
     match facts::check() {
@@ -10,5 +16,3 @@ fn main() {
     };
     bot::init();
 }
-
-
