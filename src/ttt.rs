@@ -5,7 +5,7 @@ use std::fmt;
 pub enum GameState {
     Win_Player1,
     Win_Player2,
-    cat,
+    Cat,
     Turn_Player1,
     Turn_Player2,
 }
@@ -73,16 +73,19 @@ impl Player {
     }
 }
 
+use GameState::*;
+
 impl TicTTGame {
+
     pub fn new(player1: Player, player2: Player) -> TicTTGame {
         TicTTGame {
             player1: player1,
             player2: player2,
             board: vec![None, None, None, None, None, None, None, None, None],
             state: if rand::random() {
-                GameState::Turn_Player1
+                Turn_Player1
             } else {
-                GameState::Turn_Player2
+                Turn_Player2
             },
             total_moves: 0,
         }
@@ -116,7 +119,27 @@ impl TicTTGame {
 
                 //Update the state for the next turn
                 self.total_moves += 1;
-                self.state = TicTTGame::determine_state(&self);
+
+                let next_state = |game: &TicTTGame| -> GameState {
+                    if game.total_moves == 17 {
+                        return Cat;
+                    } if game.player1.points == 15 {
+                        return Win_Player1;
+                    } else if game.player2.points == 15 {
+                        return Win_Player2;
+                    }
+
+                    match game.state {
+                        Turn_Player1 => Turn_Player2,
+                        Turn_Player2 => Turn_Player1,
+                        Win_Player1 => Win_Player1,
+                        Win_Player2 => Win_Player2,
+                        Cat => Cat,
+                    }
+                };
+
+
+                self.state = next_state(&self);
                 ret
             }
         };
@@ -139,31 +162,6 @@ impl TicTTGame {
             7 => Some(9),
             8 => Some(2),
             _ => None,
-        }
-    }
-
-    pub fn determine_state(game: &TicTTGame) -> GameState {
-        if let Some(winner) = game.detect_win() {
-            return winner;
-        }
-
-        if (game.total_moves == 17) {
-            return GameState::cat;
-        }
-
-        match &game.state {
-            Turn_Player1 => GameState::Turn_Player2,
-            Turn_Player2 => GameState::Turn_Player1,
-        }
-    }
-
-    pub fn detect_win(&self) -> Option<GameState> {
-        if self.player1.points == 15 {
-            Some(GameState::Win_Player1)
-        } else if self.player2.points == 15 {
-            Some(GameState::Win_Player2)
-        } else {
-            None
         }
     }
 

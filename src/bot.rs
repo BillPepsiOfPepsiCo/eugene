@@ -12,6 +12,12 @@ mod facts;
 #[path = "ttt.rs"]
 mod ttt;
 
+use ttt::{
+    GameState::{Win_Player1, Win_Player2, Cat},
+    TicTTGame,
+    Player,
+};
+
 struct Handler;
 
 impl EventHandler for Handler {
@@ -23,15 +29,10 @@ impl EventHandler for Handler {
     }
 }
 
-enum TTTState {
-    NOT_IN_PROGRESS,
-    PROC_PLAYER1,
-    PROC_PLAYER2,
-    COMPLETE,
-}
 
+//The static vector that stores each in-progress game.
 lazy_static! {
-    static ref ttt_games_mx: Mutex<Vec<ttt::TicTTGame>> = Mutex::new(vec![]);
+    static ref ttt_games_mx: Mutex<Vec<TicTTGame>> = Mutex::new(vec![]);
 }
 
 pub fn init() {
@@ -61,35 +62,80 @@ pub fn init() {
                 //~tictactoe start <player1 piece> <player2-name> <player2-piece>
                 let command = args.single::<String>()?;
                 if args.len() == 4 && command == "start" {
+                    //This function is for detecting a leading @, in which case
+                    //it is sanitized.
+                    let sanitize_at = |s: String| -> String {
+                        match s.find('@') {
+                            Some(usize) => {
+                                s[1..s.len() - 1].to_string()
+                            },
+                            None => s
+                        }
+                    };
+
                     let piece_p1 = args.single::<String>()?;
-                    let name_p1 = (&msg.author.name).to_string();
-                    let name_p2 = args.single::<String>()?;
+                    let name_p1 = sanitize_at((&msg.author.name).to_string());
+                    let name_p2 = sanitize_at(args.single::<String>()?);
                     let piece_p2 = args.single::<String>()?;
-                    let player1: ttt::Player = ttt::Player::new(name_p1, piece_p1);
-                    let player2: ttt::Player = ttt::Player::new(name_p2, piece_p2);
+                    let player1: Player = Player::new(name_p1, piece_p1);
+                    let player2: Player = Player::new(name_p2, piece_p2);
 
                     for game in ttt_games_mx.lock().unwrap().iter() {
                         if game.player1 == player1 {
-                            msg.channel_id
-                                .say(format!("{} is already in a game!", player1.name));
+                            handleoutmsg(&msg, format!("{} is already in a game!", player1.name));
                             return Ok(());
                         } else if game.player2 == player2 {
-                            msg.channel_id
-                                .say(format!("{} is already in a game!", player2.name));
+                            handleoutmsg(&msg, format!("{} is already in a game!", player2.name));
                             return Ok(());
                         }
                     }
 
-                    msg.channel_id.say(format!(
+                    handleoutmsg(&msg, format!(
                         "A new game of tic tac toe has been started between {} and {}!",
                         player1.name, player2.name
                     ));
-                    let g = ttt::TicTTGame::new(player1, player2);
+                    let g = TicTTGame::new(player1, player2);
                     println!("{}", g);
                     ttt_games_mx.lock().unwrap().push(g);
-                } else if args.len() == 1 {
-                    //Playing the feud
+                } else if args.len() == 2 {
+                    match command.as_ref() {
+                        "put" => {
+                            let mut vec_mutex = ttt_games_mx.lock().unwrap();
+                            let mut indexes_to_pop: Vec<usize> = Vec::new();
 
+                            for index in 0..vec_mutex.len() {
+                                let game = &mut vec_mutex[index];
+
+                                if game.player1.name == msg.author.name || game.player2.name == msg.author.name {
+                                    let position = args.single::<String>()?;
+                                    let mut target_game: TicTTGame = vec_mutex.remove(index);
+                                    println!("{}", target_game);
+
+                                    match target_game.update_board(position) {
+                                        Ok(_) => (),
+                                        Err(why) => handleoutmsg(&msg, why.to_string()),
+                                    };
+
+                                    match target_game.state {
+                                        Win_Player1 => handleoutmsg(&msg, format!("{} has won!", target_game.player1.name)),
+                                        Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.player2.name)),
+                                        Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
+                                        _ => {
+                                            handleoutmsg(&msg, format!("{}\nState: {:?}", target_game, target_game.state));
+                                            vec_mutex.push(target_game);
+                                        }
+                                        
+                                    };
+
+                                    return Ok(());
+                                }
+                            }
+
+                            handleoutmsg(&msg, String::from("You are not in a game!"));
+                        },
+
+                        &_ => handleoutmsg(&msg, String::from("Unknown command!")),
+                    };
                 }
 
                 Ok(())
@@ -99,4 +145,11 @@ pub fn init() {
     if let Err(why) = client.start() {
         println!("An error occurred while running the client: {:?}", why);
     }
+}
+
+fn handleoutmsg(msg: &Message, string: String) {
+    match msg.channel_id.say(&string) {
+        Ok(_) => println!("Sent message: {}\nIn reply to: [{}] {:?}", string, msg.author.name, msg.content),
+        Err(why) => println!("Failed to send message: {}\nError: {}", string, why),
+    };
 }
