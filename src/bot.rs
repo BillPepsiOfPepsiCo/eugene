@@ -91,9 +91,11 @@ pub fn init() {
                     }
 
                     handleoutmsg(&msg, format!(
-                        "A new game of tic tac toe has been started between {} and {}!",
+                        "A new game of tic tac toe has been started between {} and {}!\nUse ~t3 put <position> to choose a space on your turn. These are the positions:",
                         player1.name, player2.name
                     ));
+
+                    handleoutmsg(&msg, format!("{}", TicTTGame::help_grid()));
                     let g = TicTTGame::new(player1, player2);
                     println!("{}", g);
                     ttt_games_mx.lock().unwrap().push(g);
@@ -109,11 +111,13 @@ pub fn init() {
                                 if game.player1.name == msg.author.name || game.player2.name == msg.author.name {
                                     let position = args.single::<String>()?;
                                     let mut target_game: TicTTGame = vec_mutex.remove(index);
-                                    println!("{}", target_game);
 
                                     match target_game.update_board(position) {
                                         Ok(_) => (),
-                                        Err(why) => handleoutmsg(&msg, why.to_string()),
+                                        Err(why) => {
+                                            handleoutmsg(&msg, why.to_string());
+                                            return Ok(());
+                                        },
                                     };
 
                                     match target_game.state {
@@ -121,7 +125,7 @@ pub fn init() {
                                         Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.player2.name)),
                                         Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
                                         _ => {
-                                            handleoutmsg(&msg, format!("{}\nState: {:?}", target_game, target_game.state));
+                                            handleoutmsg(&msg, format!("```\n{}```\nState: {:?}", target_game.as_table(), target_game.state));
                                             vec_mutex.push(target_game);
                                         }
                                         

@@ -1,5 +1,6 @@
 use rand::prelude::*;
 use std::fmt;
+use prettytable::{Table, Row, Cell, format::{FormatBuilder}};
 
 #[derive(Debug)]
 pub enum GameState {
@@ -34,32 +35,10 @@ impl PartialEq for Player {
 
 impl fmt::Display for TicTTGame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut disp_str: String = String::new();
-        let mut clean_board: Vec<String> = Vec::new();
-
-        for thing in &self.board {
-            match thing {
-                Some(piece) => clean_board.push(piece.to_string()),
-                None => clean_board.push(String::from("-")),
-            };
-        }
-
-        disp_str.push_str(&format!(
-            "{} | {} | {}\n",
-            clean_board[0], clean_board[1], clean_board[2]
-        ));
-        disp_str.push_str("----------\n");
-        disp_str.push_str(&format!(
-            "{} | {} | {}\n",
-            clean_board[3], clean_board[4], clean_board[5]
-        ));
-        disp_str.push_str("----------\n");
-        disp_str.push_str(&format!(
-            "{} | {} | {}\n",
-            clean_board[6], clean_board[7], clean_board[8]
-        ));
-
-        write!(f, "{}", disp_str)
+        let clean_board = self.sanitized_board();
+        write!(f, "\n{}", table!([clean_board[0], clean_board[1], clean_board[2]],
+                                 [clean_board[3], clean_board[4], clean_board[5]],
+                                 [clean_board[6], clean_board[7], clean_board[8]]))
     }
 }
 
@@ -89,6 +68,35 @@ impl TicTTGame {
             },
             total_moves: 0,
         }
+    }
+
+    pub fn as_table(&self) -> String {
+        let mut table = Table::new();
+        let table_format = FormatBuilder::new()
+                            .column_separator('|')
+                            .padding(1, 1)
+                            .build();
+        let clean_board = self.sanitized_board();
+
+        table.set_format(table_format);
+        table.add_row(row![clean_board[0], clean_board[1], clean_board[2]]);
+        table.add_row(row![clean_board[3], clean_board[4], clean_board[5]]);
+        table.add_row(row![clean_board[6], clean_board[7], clean_board[8]]);
+
+        format!("{}", table)
+    }
+
+    pub fn sanitized_board(&self) -> Vec<String> {
+        let mut clean_board: Vec<String> = Vec::new();
+
+        for thing in &self.board {
+            match thing {
+                Some(piece) => clean_board.push(piece.to_string()),
+                None => clean_board.push(String::from("\u{2B50}")),
+            };
+        }
+
+        return clean_board;
     }
 
     pub fn update_board(&mut self, pos: String) -> Result<(), &'static str> {
@@ -165,11 +173,7 @@ impl TicTTGame {
         }
     }
 
-    pub fn board_grid() -> &'static str {
-        "0 | 1 | 2\n
-        -----------\n
-         3 | 4 | 5\n
-        -----------\n
-         6 | 7 | 8\n"
+    pub fn help_grid() -> String {
+        format!("```{}```", table!([0, 1, 2], [3, 4, 5], [6, 7, 8]))
     }
 }
