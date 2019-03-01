@@ -2,7 +2,7 @@ use rand::prelude::*;
 use std::fmt;
 use prettytable::{Table, Row, Cell, format::{FormatBuilder}};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GameState {
     Win_Player1,
     Win_Player2,
@@ -110,26 +110,15 @@ impl TicTTGame {
             None => return Err("Invalid position!"),
         };
 
-        let piece: &String = match self.board[position] {
+        let piece: String = match self.board[position] {
             Some(_) => return Err("That position is already occupied!"),
             None => {
-                let ret = match &self.state {
-                    Turn_Player1 => {
-                        self.player1.points += ms_val;
-                        &self.player1.piece
-                    }
-                    Turn_Player2 => {
-                        self.player2.points += ms_val;
-                        &self.player2.piece
-                    }
-                    _ => return Err("Game is unable to be updated: invalid state"),
-                };
-
+                let prev_state = self.state.clone();
                 //Update the state for the next turn
                 self.total_moves += 1;
 
                 let next_state = |game: &TicTTGame| -> GameState {
-                    if game.total_moves == 17 {
+                    if game.total_moves == 9 {
                         return Cat;
                     } if game.player1.points == 15 {
                         return Win_Player1;
@@ -146,14 +135,29 @@ impl TicTTGame {
                     }
                 };
 
-
                 self.state = next_state(&self);
-                ret
+
+                match prev_state {
+                    Turn_Player1 | Turn_Player2 => {
+                        let mut player: &mut Player = self.get_curr_player();
+                        player.points += ms_val;
+                        player.piece.clone()
+                    }
+                    _ => return Err("Game is unable to be updated: invalid state"),
+                }
             }
         };
 
-        self.board[position] = Some(piece.to_string());
+        self.board[position] = Some(piece);
         Ok(())
+    }
+
+    //Returns whatever player the turn is on.
+    pub fn get_curr_player(&mut self) -> &mut Player {
+        match &self.state {
+            Turn_Player1 => &mut self.player1,
+            _ => &mut self.player2,
+        }
     }
 
     //This function gives the corresponding magic square

@@ -1,8 +1,9 @@
 use serenity::{
     client::Client,
     framework::standard::{Args, StandardFramework},
-    model::{channel::Message, gateway::Ready},
+    model::{channel::Message, gateway::Ready, id::UserId},
     prelude::*,
+    utils::parse_mention,
 };
 
 use std::{env, sync::Mutex};
@@ -60,6 +61,7 @@ pub fn init() {
             })
             .on("t3", |_context, msg, mut args| {
                 //~tictactoe start <player1 piece> <player2-name> <player2-piece>
+                println!("{}", msg.content);
                 let command = args.single::<String>()?;
                 if args.len() == 4 && command == "start" {
                     //This function is for detecting a leading @, in which case
@@ -67,7 +69,7 @@ pub fn init() {
                     let sanitize_at = |s: String| -> String {
                         match s.find('@') {
                             Some(usize) => {
-                                s[1..s.len() - 1].to_string()
+                                UserId(parse_mention(&s).unwrap()).get().unwrap().name
                             },
                             None => s
                         }
@@ -110,25 +112,24 @@ pub fn init() {
 
                                 if game.player1.name == msg.author.name || game.player2.name == msg.author.name {
                                     let position = args.single::<String>()?;
-                                    let mut target_game: TicTTGame = vec_mutex.remove(index);
+                                    let mut target_game = vec_mutex.remove(index);
 
                                     match target_game.update_board(position) {
                                         Ok(_) => (),
                                         Err(why) => {
                                             handleoutmsg(&msg, why.to_string());
+                                            vec_mutex.push(target_game);
                                             return Ok(());
                                         },
                                     };
 
                                     match target_game.state {
-                                        Win_Player1 => handleoutmsg(&msg, format!("{} has won!", target_game.player1.name)),
-                                        Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.player2.name)),
+                                        Win_Player1 | Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.get_curr_player().name)),
                                         Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
                                         _ => {
                                             handleoutmsg(&msg, format!("```\n{}```\nState: {:?}", target_game.as_table(), target_game.state));
                                             vec_mutex.push(target_game);
                                         }
-                                        
                                     };
 
                                     return Ok(());
