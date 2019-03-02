@@ -1,12 +1,19 @@
 use serenity::{
     client::Client,
     framework::standard::{Args, StandardFramework},
-    model::{channel::Message, gateway::Ready, id::UserId},
+    model::{channel::Message, gateway::{Ready, Game}, id::UserId},
     prelude::*,
     utils::parse_mention,
+    gateway::Shard,
+    http,
 };
 
-use std::{env, sync::Mutex};
+use std::{
+    env, 
+    sync::Arc,
+};
+
+use config::{Config, File};
 
 #[path = "facts.rs"]
 mod facts;
@@ -24,19 +31,26 @@ struct Handler;
 impl EventHandler for Handler {
     fn message(&self, _: Context, msg: Message) {}
 
-    fn ready(&self, _: Context, ready_event: Ready) {
-        println!("Ready");
-        println!("Ready details: {:?}", ready_event);
+    fn ready(&self, context: Context, ready_event: Ready) {
+        let curr_user = &ready_event.user;
+
+        //Load game from cfg file Eugene.toml
+        let mut cfg = Config::default();
+        cfg.merge(File::with_name("Eugene"));
+        context.set_game(Game::playing(&cfg.get::<String>("game").unwrap()));
+
+        println!("Session ID: {}\nLogged in as: {} (descriminator = {})\n\u{1F916}? {:?}", ready_event.session_id, curr_user.name, curr_user.discriminator, curr_user.bot);
+        println!(" - Ready - ");
     }
 }
 
-
 //The static vector that stores each in-progress game.
 lazy_static! {
-    static ref ttt_games_mx: Mutex<Vec<TicTTGame>> = Mutex::new(vec![]);
+    static ref ttt_games_mx: std::sync::Mutex<Vec<TicTTGame>> = std::sync::Mutex::new(vec![]);
 }
 
 pub fn init() {
+    //Initialize the client wrapper
     let mut client = Client::new(&env::var("DISCORD_TOKEN").expect("Expected token"), Handler)
         .expect("Client creation error");
 
@@ -68,9 +82,8 @@ pub fn init() {
                     //it is sanitized.
                     let sanitize_at = |s: String| -> String {
                         match s.find('@') {
-                            Some(usize) => {
-                                UserId(parse_mention(&s).unwrap()).get().unwrap().name
-                            },
+                            //If the player @'s someone else to play, it must be wrapped into a UserId and resolved.
+                            Some(usize) => UserId(parse_mention(&s).unwrap()).get().unwrap().name,
                             None => s
                         }
                     };
@@ -124,10 +137,11 @@ pub fn init() {
                                     };
 
                                     match target_game.state {
-                                        Win_Player1 | Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.get_curr_player().name)),
+                                        Win_Player1 | Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.get_curr_player_mut().name)),
                                         Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
                                         _ => {
-                                            handleoutmsg(&msg, format!("```\n{}```\nState: {:?}", target_game.as_table(), target_game.state));
+                                            let player = target_game.get_curr_player();
+                                            handleoutmsg(&msg, format!("```\n{}```\n{} {}, it\'s your turn!", target_game.as_table(), player.name, player.piece));
                                             vec_mutex.push(target_game);
                                         }
                                     };

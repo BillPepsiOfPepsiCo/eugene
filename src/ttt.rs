@@ -139,7 +139,7 @@ impl TicTTGame {
 
                 match prev_state {
                     Turn_Player1 | Turn_Player2 => {
-                        let mut player: &mut Player = self.get_curr_player();
+                        let mut player: &mut Player = self.get_curr_player_mut();
                         player.points += ms_val;
                         player.piece.clone()
                     }
@@ -153,10 +153,17 @@ impl TicTTGame {
     }
 
     //Returns whatever player the turn is on.
-    pub fn get_curr_player(&mut self) -> &mut Player {
+    pub fn get_curr_player_mut(&mut self) -> &mut Player {
         match &self.state {
             Turn_Player1 => &mut self.player1,
             _ => &mut self.player2,
+        }
+    }
+
+    pub fn get_curr_player(&self) -> &Player {
+        match &self.state {
+            Turn_Player1 => &self.player1,
+            _ => &self.player2,
         }
     }
 
