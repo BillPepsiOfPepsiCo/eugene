@@ -98,7 +98,7 @@ pub mod botcfg {
 		}
 	}
 	
-	pub fn put_str(key: String, value: String) {		
+	pub fn put_str(key: &str, value: String) {		
 		match glock!().set(&key, value) {
 			Err(why) => println!("Error assigning value {}: {:?}", key, why),
 			_ => ()
@@ -159,87 +159,114 @@ command!(t3(_context, msg, args) {
 	let command = args.single::<String>()?;
 	let command: &str = command.as_ref();
 	
-	if args.len() == 4 && command == "start" {
-		//This function is for detecting a leading @, in which case
-		//it is sanitized.
-		let sanitize_at = |s: String| -> String {
+	match command {
+		"start" => {
+			if args.len() != 4 {
+				handleoutmsg(&msg, String::from("Usage: ~t3 start <player-1-emote> <player-2-name/@> <player-2-emote>"));
+				return Ok(());
+			}
+			
+			let sanitize_at = |s: String| -> String {
 			match s.find('@') {
 				//If the player @'s someone else to play, it must be wrapped into a UserId and resolved.
 				Some(usize) => UserId(parse_mention(&s).unwrap()).get().unwrap().name,
 				None => s
-			}
-		};
+				}
+			};
 
-		let piece_p1 = args.single::<String>()?;
-		let name_p1 = sanitize_at((&msg.author.name).to_string());
-		let name_p2 = sanitize_at(args.single::<String>()?);
-		let piece_p2 = args.single::<String>()?;
-		let player1: Player = Player::new(name_p1, piece_p1);
-		let player2: Player = Player::new(name_p2, piece_p2);
-
-		for game in TTT_GAMES_MX.lock().unwrap().iter() {
-			if game.player1 == player1 {
+			let piece_p1 = args.single::<String>()?;
+			let name_p1 = sanitize_at((&msg.author.name).to_string());
+			let name_p2 = sanitize_at(args.single::<String>()?);
+			let piece_p2 = args.single::<String>()?;
+			let player1: Player = Player::new(name_p1, piece_p1);
+			let player2: Player = Player::new(name_p2, piece_p2);
+			let mut vec = &mut TTT_GAMES_MX.lock().unwrap();
+			
+			if let Some(_) = player_in_vec(&player1.name, vec) {
 				handleoutmsg(&msg, format!("{} is already in a game!", player1.name));
 				return Ok(());
-			} else if game.player2 == player2 {
-				handleoutmsg(&msg, format!("{} is already in a game!", player2.name));
+			} else if let Some(_) = player_in_vec(&player2.name, vec) {
+				handleoutmsg(&msg, format!("{} is already in a game!", player1.name));
 				return Ok(());
 			}
-		}
 
-		handleoutmsg(&msg, format!(
-			"A new game of tic tac toe has been started between {} and {}!\nUse ~t3 put <position> to choose a space on your turn. These are the positions:",
-			player1.name, player2.name
-		));
+			handleoutmsg(&msg, format!(
+				"A new game of tic tac toe has been started between {} and {}!\nUse ~t3 put <position> to choose a space on your turn. These are the positions:",
+				player1.name, player2.name
+			));
 
-		handleoutmsg(&msg, format!("{}", TicTTGame::help_grid()));
-		let g = TicTTGame::new(player1, player2);
-		println!("{}", g);
-		TTT_GAMES_MX.lock().unwrap().push(g);
-	} else if args.len() == 2 {
-		match command.as_ref() {
-			"put" => {
-				let mut vec_mutex = TTT_GAMES_MX.lock().unwrap();
-				let mut indexes_to_pop: Vec<usize> = Vec::new();
+			handleoutmsg(&msg, format!("{}", TicTTGame::help_grid()));
+			let g = TicTTGame::new(player1, player2);
+			println!("{}", g);
+			vec.push(g);
+		},
+		
+		"put" => {
+			if args.len() != 2 {
+				handleoutmsg(&msg, String::from("Usage: ~t3 put <position>"));
+				return Ok(());
+			}
+			
+			let mut vec_mutex = TTT_GAMES_MX.lock().unwrap();
 
-				for index in 0..vec_mutex.len() {
-					let game = &mut vec_mutex[index];
+			if let Some(game) = player_in_vec(&msg.author.name, &mut vec_mutex) {
+				let position = args.single::<String>()?;
+				let mut target_game = game;
 
-					if game.player1.name == msg.author.name || game.player2.name == msg.author.name {
-						let position = args.single::<String>()?;
-						let mut target_game = vec_mutex.remove(index);
-
-						match target_game.update_board(position) {
-							Ok(_) => (),
-							Err(why) => {
-								handleoutmsg(&msg, why.to_string());
-								vec_mutex.push(target_game);
-								return Ok(());
-							},
-						};
-
-						match target_game.state {
-							Win_Player1 | Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.get_curr_player_mut().name)),
-							Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
-							_ => {
-								let player = target_game.get_curr_player();
-								handleoutmsg(&msg, format!("```\n{}```\n{} {}, it\'s your turn!", target_game.as_table(), player.name, player.piece));
-								vec_mutex.push(target_game);
-							}
-						};
-
+				match target_game.update_board(position) {
+					Err(why) => {
+						handleoutmsg(&msg, why.to_string());
+						vec_mutex.push(target_game);
 						return Ok(());
+					},
+					_ => ()
+				};
+
+				match target_game.state {
+					Win_Player1 | Win_Player2 => handleoutmsg(&msg, format!("{} has won!", target_game.get_curr_player_mut().name)),
+					Cat => handleoutmsg(&msg, String::from("\nYou both lose! Congratulations!")),
+					_ => {
+						let player = target_game.get_curr_player();
+						handleoutmsg(&msg, format!("```\n{}```\n{} {}, it\'s your turn!", target_game.as_table(), player.name, player.piece));
+						vec_mutex.push(target_game);
 					}
-				}
-
+				};
+			} else {
 				handleoutmsg(&msg, String::from("You are not in a game!"));
-			},
-
-			&_ => handleoutmsg(&msg, String::from("Unknown command!")),
-		};
+			}
+		},
+		
+		"quit" => {
+			if args.len() != 1 {
+				handleoutmsg(&msg, String::from("Usage: ~t3 quit"));
+				return Ok(());
+			}
+			
+			let mut vec_mutex = TTT_GAMES_MX.lock().unwrap();
+			
+			//A byproduct of calling player_in_vec is removing the game from the vector so it can be moved out of the function.
+			//The "put" command pushes the game back into the vector after a player makes a move. This doesn't need to happen here
+			if let None = player_in_vec(&msg.author.name, &mut vec_mutex) {
+				handleoutmsg(&msg, String::from("You are not in a game!"));
+			} else {
+				handleoutmsg(&msg, String::from("Your game has been ended early."));
+			}
+		},
+		
+		&_ => handleoutmsg(&msg, String::from("Unknown command!")),
 	}
 });
 
 fn user_is_owner(_context: &mut Context, message: &Message, _: &mut Args, _: &CommandOptions) -> bool {
 	message.author.id == 130013619734708224
+}
+
+fn player_in_vec(player: &String, vec: &mut Vec<TicTTGame>) -> Option<TicTTGame> {
+	for index in 0..vec.len() {
+		if ttt::TicTTGame::player_is_in_game(player, &vec[index]) {
+			return Some(vec.remove(index));
+		}
+	}
+	
+	None
 }
